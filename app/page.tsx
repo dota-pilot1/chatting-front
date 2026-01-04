@@ -1,65 +1,137 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useRef } from "react";
+import { io, Socket } from "socket.io-client";
+
+type ConnectionStatus = "DISCONNECTED" | "CONNECTED" | "WAITING" | "IN_ROOM";
 
 export default function Home() {
+  const [nickname, setNickname] = useState("");
+  const [status, setStatus] = useState<ConnectionStatus>("DISCONNECTED");
+  const [waitingCount, setWaitingCount] = useState(0);
+  const socketRef = useRef<Socket | null>(null);
+
+  const handleConnect = () => {
+    if (!nickname.trim()) {
+      alert("닉네임을 입력해주세요");
+      return;
+    }
+
+    const socket = io("http://localhost:3010");
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      setStatus("CONNECTED");
+    });
+
+    socket.on("disconnect", () => {
+      setStatus("DISCONNECTED");
+    });
+
+    socket.on("statusChange", (data: { status: ConnectionStatus }) => {
+      setStatus(data.status);
+    });
+
+    socket.on("waitingCount", (data: { count: number }) => {
+      setWaitingCount(data.count);
+    });
+  };
+
+  const handleDisconnect = () => {
+    socketRef.current?.disconnect();
+    socketRef.current = null;
+    setStatus("DISCONNECTED");
+  };
+
+  const handleJoinQueue = () => {
+    socketRef.current?.emit("joinQueue", { nickname });
+  };
+
+  const getStatusColor = (s: ConnectionStatus) => {
+    switch (s) {
+      case "DISCONNECTED":
+        return "text-red-500";
+      case "CONNECTED":
+        return "text-green-500";
+      case "WAITING":
+        return "text-yellow-500";
+      case "IN_ROOM":
+        return "text-blue-500";
+    }
+  };
+
+  const getStatusText = (s: ConnectionStatus) => {
+    switch (s) {
+      case "DISCONNECTED":
+        return "연결 안됨";
+      case "CONNECTED":
+        return "연결됨";
+      case "WAITING":
+        return "대기중";
+      case "IN_ROOM":
+        return "채팅방 입장";
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-white text-black p-8">
+      {/* 1. 연결 컨트롤 영역 */}
+      <section className="mb-8 p-6 bg-gray-100 rounded-lg">
+        <h2 className="text-xl font-bold mb-4">연결 설정</h2>
+        <div className="flex gap-4 items-center">
+          <input
+            type="text"
+            placeholder="닉네임 입력"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            disabled={status !== "DISCONNECTED"}
+            className="px-4 py-2 rounded bg-white border border-gray-300 text-black placeholder-gray-400 disabled:opacity-50"
+          />
+          {status === "DISCONNECTED" ? (
+            <button
+              onClick={handleConnect}
+              className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              연결
+            </button>
+          ) : (
+            <button
+              onClick={handleDisconnect}
+              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              연결 해제
+            </button>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* 2. 상태 패널 */}
+      <section className="p-6 bg-gray-100 rounded-lg">
+        <h2 className="text-xl font-bold mb-4">상태</h2>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="text-gray-600">내 상태:</span>
+            <span className={`font-bold ${getStatusColor(status)}`}>
+              {getStatusText(status)}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-gray-600">대기 인원:</span>
+            <span className="font-bold">{waitingCount}명</span>
+          </div>
         </div>
-      </main>
+      </section>
+
+      {/* 3. 대기열 참가 버튼 */}
+      <section className="mt-8">
+        <button
+          onClick={handleJoinQueue}
+          disabled={status !== "CONNECTED"}
+          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          대기열 참가
+        </button>
+      </section>
     </div>
   );
 }
