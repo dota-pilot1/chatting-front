@@ -1,0 +1,64 @@
+# 대기열 상태 변화 개념 정리
+
+---
+
+## 핵심 차이
+
+connect / disconnect = 소켓 연결 자체
+joinQueue = 도메인 이벤트 (대기열 참가)
+
+---
+
+## 이벤트 흐름
+
+```
+[대기열 참가] 버튼 클릭
+  ↓
+프론트: emit("joinQueue", { nickname })
+  ↓
+백엔드: @SubscribeMessage('joinQueue') 실행
+  ↓
+백엔드: client.emit("statusChange", { status: "WAITING" })
+  ↓
+프론트: socket.on("statusChange") 실행
+  ↓
+화면: 내 상태 → WAITING
+```
+
+---
+
+## 코드 요약
+
+### 프론트 - 이벤트 전송
+```typescript
+const handleJoinQueue = () => {
+  socketRef.current?.emit("joinQueue", { nickname });
+};
+```
+
+### 백엔드 - 이벤트 수신 & 상태 push
+```typescript
+@SubscribeMessage('joinQueue')
+handleJoinQueue(client: Socket, data: { nickname: string }) {
+  console.log('joinQueue:', client.id, data.nickname);
+  client.emit('statusChange', { status: 'WAITING' });
+}
+```
+
+### 프론트 - 상태 수신
+```typescript
+socket.on("statusChange", (data) => {
+  setStatus(data.status);
+});
+```
+
+---
+
+## 핵심 포인트
+
+1. 프론트는 상태를 직접 변경하지 않음
+2. 서버가 상태를 결정해서 push
+3. 프론트는 받은 상태를 그대로 표시
+
+이 패턴이 웹소켓의 기본 구조:
+이벤트 전송 → 서버 처리 → 상태 push → UI 반영

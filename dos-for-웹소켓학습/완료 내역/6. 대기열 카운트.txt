@@ -1,0 +1,18 @@
+# 대기열 카운트 구현 완료
+
+## 수정한 파일
+- chatting-backend/src/socket/socket.gateway.ts
+- chatting-frontend/app/page.tsx
+
+## 백엔드 구현
+- @WebSocketServer() 데코레이터로 server 인스턴스 획득
+- waitingQueue 배열로 대기열 관리
+- joinQueue 시 배열에 추가 + 전체에게 broadcast
+- disconnect 시 배열에서 제거 + 전체에게 broadcast
+
+## 프론트 구현
+- socket.on("waitingCount") 로 인원 수 수신
+- setWaitingCount로 화면 반영
+
+## 핵심 개념
+- server.emit() = 전체 클라이언트에게 전송 (broadcast)

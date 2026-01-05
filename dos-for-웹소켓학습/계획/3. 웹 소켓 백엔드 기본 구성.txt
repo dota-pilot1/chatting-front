@@ -1,0 +1,63 @@
+# 웹소켓 백엔드 기본 구성
+
+## 목표
+- NestJS에서 WebSocket 서버 구성
+- 프론트에서 연결 시 서버 콘솔에 로그 출력
+- "연결만" 되면 성공 (0단계)
+
+---
+
+## 구현 순서
+
+### Step 1: WebSocket 패키지 설치
+```bash
+cd /Users/terecal/websocket-prac/chatting-backend
+npm install @nestjs/websockets @nestjs/platform-socket.io socket.io
+```
+
+### Step 2: WebSocket Gateway 생성
+```bash
+nest g gateway socket
+```
+- 생성 위치: src/socket/socket.gateway.ts
+
+### Step 3: Gateway 코드 작성 (최소 구현)
+```typescript
+// src/socket/socket.gateway.ts
+import { WebSocketGateway, OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
+import { Socket } from 'socket.io';
+
+@WebSocketGateway({ cors: true })
+export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  handleConnection(client: Socket) {
+    console.log('client connected:', client.id);
+  }
+
+  handleDisconnect(client: Socket) {
+    console.log('client disconnected:', client.id);
+  }
+}
+```
+
+### Step 4: 백엔드 서버 실행
+```bash
+npm run start:dev
+```
+
+### Step 5: 프론트에서 연결 테스트
+- 프론트엔드에서 [연결] 버튼 클릭
+- 서버 콘솔에 `client connected: xxxx` 출력되면 성공
+
+---
+
+## 성공 기준
+- 서버 정상 실행
+- 프론트 연결 시 서버 로그 출력
+
+---
+
+## 이 단계에서 하지 않는 것
+- Redis
+- joinQueue 이벤트
+- 상태 변경 로직
+- 채팅 기능

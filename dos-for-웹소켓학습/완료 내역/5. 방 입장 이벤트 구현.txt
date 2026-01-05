@@ -1,0 +1,17 @@
+# 방 입장 이벤트 구현 완료
+
+## 수정한 파일
+- chatting-backend/src/socket/socket.gateway.ts
+- chatting-frontend/app/page.tsx
+
+## 백엔드 구현
+- @SubscribeMessage('joinQueue') 추가
+- client.emit('statusChange') 로 상태 push
+
+## 프론트 구현
+- handleJoinQueue: emit("joinQueue") 전송
+- socket.on("statusChange"): 서버 상태 수신
+
+## 결과
+- 버튼 클릭 → 서버 로그 출력
+- 상태 CONNECTED → WAITING 변경

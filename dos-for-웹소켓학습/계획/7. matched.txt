@@ -1,0 +1,82 @@
+# matched 이벤트 구현 계획
+
+## 목표
+- 대기열 2명 이상이면 matched 이벤트 emit
+- 모든 브라우저에서 "매치됨" 상태 표시
+
+---
+
+## 핵심 개념
+
+대기열 인원 ≥ 2 → 조건 충족 → matched 이벤트 발생
+아직 방 없음, 특정 2명 선택 없음
+"매칭 발생했다"는 사실만 알림
+
+---
+
+## 구현 순서
+
+### Step 1: 백엔드 - 조건 체크 + matched emit
+
+```typescript
+// socket.gateway.ts - handleJoinQueue 안에 추가
+@SubscribeMessage('joinQueue')
+handleJoinQueue(client: Socket, data: { nickname: string }) {
+  this.waitingQueue.push(client.id);
+  this.server.emit('waitingCount', { count: this.waitingQueue.length });
+  client.emit('statusChange', { status: 'WAITING' });
+
+  // 2명 이상이면 매칭
+  if (this.waitingQueue.length >= 2) {
+    this.server.emit('matched');
+  }
+}
+```
+
+### Step 2: 프론트 - 상태 타입에 MATCHED 추가
+
+```typescript
+type ConnectionStatus = "DISCONNECTED" | "CONNECTED" | "WAITING" | "MATCHED" | "IN_ROOM";
+```
+
+### Step 3: 프론트 - matched 이벤트 수신
+
+```typescript
+socket.on("matched", () => {
+  setStatus("MATCHED");
+});
+```
+
+### Step 4: 프론트 - MATCHED 상태 표시 추가
+
+```typescript
+// getStatusColor
+case "MATCHED":
+  return "text-purple-500";
+
+// getStatusText
+case "MATCHED":
+  return "매치됨";
+```
+
+---
+
+## 테스트 방법
+1. 브라우저 A: 연결 → 대기열 참가 → 대기중
+2. 브라우저 B: 연결 → 대기열 참가
+3. 확인: 두 브라우저 모두 "매치됨" 표시
+
+---
+
+## 성공 기준
+- 대기열 2명 되면 matched 이벤트 발생
+- 두 브라우저 모두 MATCHED 상태 표시
+
+---
+
+## 이 단계에서 하지 않는 것
+- 방 생성
+- 특정 2명만 골라서 매칭
+- 대기열에서 제거
+- roomId 부여
+- Redis

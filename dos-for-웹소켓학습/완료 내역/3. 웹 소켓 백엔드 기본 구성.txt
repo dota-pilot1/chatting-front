@@ -1,0 +1,15 @@
+# 웹소켓 백엔드 기본 구성 완료
+
+## 설치한 패키지
+npm install @nestjs/websockets @nestjs/platform-socket.io socket.io
+
+## 생성한 파일
+- chatting-backend/src/socket/socket.gateway.ts
+
+## 구현 내용
+- handleConnection: 연결 시 로그 출력
+- handleDisconnect: 해제 시 로그 출력
+- CORS 설정 (cors: true)
+
+## 포트
+- 백엔드: 3010 (main.ts에서 변경)

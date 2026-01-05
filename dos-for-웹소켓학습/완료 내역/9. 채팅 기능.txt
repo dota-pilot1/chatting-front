@@ -1,0 +1,108 @@
+# 채팅 기능 구현 완료
+
+## 수정한 파일
+- chatting-backend/src/socket/socket.gateway.ts
+- chatting-frontend/app/page.tsx
+
+---
+
+## 백엔드 구현 (순서대로)
+
+### 1. clientRooms Map 추가
+```typescript
+private clientRooms: Map<string, string> = new Map(); // clientId → roomId
+```
+
+### 2. 방 입장 시 roomId 저장
+```typescript
+this.clientRooms.set(player1.id, roomId);
+this.clientRooms.set(player2.id, roomId);
+```
+
+### 3. disconnect 시 방 정보 제거
+```typescript
+this.clientRooms.delete(client.id);
+```
+
+### 4. sendMessage 이벤트 처리
+```typescript
+@SubscribeMessage('sendMessage')
+handleSendMessage(client: Socket, data: { message: string; nickname: string }) {
+  const roomId = this.clientRooms.get(client.id);
+  if (roomId) {
+    this.server.to(roomId).emit('newMessage', {
+      nickname: data.nickname,
+      message: data.message,
+    });
+  }
+}
+```
+
+---
+
+## 프론트 구현 (순서대로)
+
+### 1. 상태 추가
+```typescript
+const [messages, setMessages] = useState<{ nickname: string; message: string }[]>([]);
+const [inputMessage, setInputMessage] = useState("");
+```
+
+### 2. newMessage 이벤트 수신
+```typescript
+socket.on("newMessage", (data) => {
+  setMessages((prev) => [...prev, data]);
+});
+```
+
+### 3. 메시지 전송 함수
+```typescript
+const handleSendMessage = () => {
+  if (inputMessage.trim()) {
+    socketRef.current?.emit("sendMessage", { message: inputMessage, nickname });
+    setInputMessage("");
+  }
+};
+```
+
+### 4. 채팅 UI (IN_ROOM 상태일 때만)
+- 메시지 목록 표시
+- 입력창 + 전송 버튼
+- Enter 키로 전송 가능
+
+---
+
+## 핵심 패턴 (동일 반복)
+1. emit("sendMessage") → 서버로 전송
+2. 서버: to(roomId).emit("newMessage") → 같은 방에만
+3. 프론트: messages 배열에 추가 → UI 반영
+
+---
+
+## 메시지 출력 방식
+
+### messages 상태 구조
+```typescript
+const [messages, setMessages] = useState<{ nickname: string; message: string }[]>([]);
+
+// 예시 데이터
+[
+  { nickname: "minsu1", message: "hi" },
+  { nickname: "hyun1", message: "hi minsu!" }
+]
+```
+
+### 화면에 출력 (map 사용)
+```typescript
+{messages.map((msg, i) => (
+  <p key={i}>
+    <span className="font-bold">{msg.nickname}:</span> {msg.message}
+  </p>
+))}
+```
+
+### 흐름 정리
+1. newMessage 이벤트 수신
+2. setMessages((prev) => [...prev, data]) → 기존 배열 + 새 메시지
+3. messages 배열이 변경되면 React가 자동으로 리렌더링
+4. map()으로 각 메시지를 <p> 태그로 변환해서 출력

@@ -1,0 +1,19 @@
+# matched 이벤트 구현 완료
+
+## 수정한 파일
+- chatting-backend/src/socket/socket.gateway.ts
+- chatting-frontend/app/page.tsx
+
+## 백엔드 구현
+- joinQueue에서 대기열 >= 2 조건 체크
+- server.emit('matched')로 전체에게 알림
+
+## 프론트 구현
+- MATCHED 상태 타입 추가
+- socket.on("matched")로 이벤트 수신
+- 매치됨 (보라색) 표시
+
+## 핵심 개념
+- 조건 기반 이벤트: 대기열 인원 >= 2 → matched 발생
+- 아직 방 없음, 특정 2명 선택 없음
+- "매칭 됐다"는 사실만 알림

@@ -1,0 +1,21 @@
+# 방 입장 및 참가자 목록 구현 완료
+
+## 수정한 파일
+- chatting-backend/src/socket/socket.gateway.ts
+- chatting-frontend/app/page.tsx
+
+## 백엔드 구현
+- waitingQueue 구조 변경: string[] → { id, nickname }[]
+- 2명 이상 시 shift()로 2명 꺼내서 방 생성
+- socket.join(roomId)로 두 클라이언트 방 입장
+- server.to(roomId).emit('joinedRoom')로 해당 방에만 전송
+
+## 프론트 구현
+- roomId, participants 상태 추가
+- socket.on("joinedRoom")로 방 정보 수신
+- IN_ROOM 상태일 때 방 정보 UI 표시
+
+## 핵심 개념
+- join(roomId) = 방 입장 (Socket.IO 내장)
+- server.to(roomId).emit() = 해당 방에만 전송
+- shift() = 배열 첫 번째 요소 제거 + 반환

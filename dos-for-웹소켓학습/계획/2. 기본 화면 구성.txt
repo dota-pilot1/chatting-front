@@ -1,0 +1,67 @@
+# 웹소켓 기본 화면 구성
+
+## 목표
+1페이지에서 WebSocket 연결/상태를 확인할 수 있는 최소 UI 구성
+
+---
+
+## 화면 구성
+
+### 1. 연결 컨트롤 영역 (상단)
+- 닉네임 입력 필드
+- [연결] / [연결 해제] 버튼
+- 연결 상태 표시 (연결됨/끊김)
+
+### 2. 상태 패널 (중앙)
+- 내 상태 표시
+  - DISCONNECTED (연결 안됨)
+  - CONNECTED (연결됨)
+  - WAITING (대기중)
+  - IN_ROOM (채팅방 입장)
+- 현재 대기 인원 수
+
+### 3. 메시지 영역 (하단) - 선택사항
+- 간단한 메시지 입력/전송
+- 수신 메시지 표시
+
+---
+
+## 구현 순서
+
+### Step 1: 기본 레이아웃 만들기
+- hyun-chatting/src/app/page.tsx 수정
+- 3개 영역 div 구성
+
+### Step 2: 상태 관리 (useState)
+- nickname: string
+- connectionStatus: 'DISCONNECTED' | 'CONNECTED' | 'WAITING' | 'IN_ROOM'
+- waitingCount: number
+
+### Step 3: UI 컴포넌트 작성
+- 닉네임 input
+- 연결/해제 button
+- 상태 표시 영역
+
+### Step 4: WebSocket 연결 (다음 단계에서)
+- 실제 서버 연결은 백엔드 준비 후 진행
+
+---
+
+## 예상 파일 구조
+
+hyun-chatting/
+└── src/
+    └── app/
+        └── page.tsx  <- 여기에 모든 UI 작성 (학습용이므로 한 파일에)
+
+---
+
+## 참고: 상태 흐름
+
+[페이지 진입] -> DISCONNECTED
+      ↓ (연결 버튼 클릭)
+   CONNECTED
+      ↓ (대기열 진입)
+    WAITING
+      ↓ (매칭 성공)
+    IN_ROOM

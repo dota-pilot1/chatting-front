@@ -63,6 +63,20 @@ export default function Home() {
     socket.on("newMessage", (data: { nickname: string; message: string }) => {
       setMessages((prev) => [...prev, data]);
     });
+
+    socket.on(
+      "participantLeft",
+      (data: { participants: string[]; leftNickname: string }) => {
+        setParticipants(data.participants);
+        setMessages((prev) => [
+          ...prev,
+          {
+            nickname: "시스템",
+            message: `${data.leftNickname}님이 나갔습니다.`,
+          },
+        ]);
+      },
+    );
   };
 
   const handleDisconnect = () => {
@@ -194,7 +208,15 @@ export default function Home() {
       {/* 5. 채팅 (IN_ROOM 상태일 때만) */}
       {status === "IN_ROOM" && (
         <section className="mt-8 p-6 bg-gray-100 rounded-lg">
-          <h2 className="text-xl font-bold mb-4">채팅</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">채팅</h2>
+            <button
+              onClick={handleDisconnect}
+              className="px-4 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded"
+            >
+              방 나가기
+            </button>
+          </div>
           <div className="h-60 overflow-y-auto bg-white border border-gray-300 rounded p-4 mb-4">
             {messages.map((msg, i) => (
               <div

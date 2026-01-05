@@ -1,0 +1,38 @@
+# 메시지 좌우 구분 구현 완료
+
+## 수정한 파일
+- chatting-frontend/app/page.tsx
+
+## 변경 내용
+
+### 기존
+```typescript
+{messages.map((msg, i) => (
+  <p key={i} className="mb-2">
+    <span className="font-bold">{msg.nickname}:</span> {msg.message}
+  </p>
+))}
+```
+
+### 변경 후
+```typescript
+{messages.map((msg, i) => (
+  <div
+    key={i}
+    className={`mb-2 ${msg.nickname === nickname ? "text-right" : "text-left"}`}
+  >
+    <span className="font-bold">{msg.nickname}:</span> {msg.message}
+  </div>
+))}
+```
+
+## 핵심 로직
+```typescript
+msg.nickname === nickname ? "text-right" : "text-left"
+```
+- 내 메시지 = 오른쪽 정렬
+- 상대 메시지 = 왼쪽 정렬
+
+## 비고
+- 웹소켓 개념 아님
+- React 조건부 스타일링

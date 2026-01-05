@@ -1,0 +1,7 @@
+# 웹소켓 학습 프로젝트 설치
+
+## 1. 프론트엔드 (Next.js)
+npx create-next-app@latest hyun-chatting
+
+## 2. 백엔드 (NestJS)
+npx @nestjs/cli new hyun-backend

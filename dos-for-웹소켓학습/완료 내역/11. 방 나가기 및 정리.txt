@@ -1,0 +1,94 @@
+# 방 나가기 및 정리 구현 완료
+
+## 수정한 파일
+- chatting-backend/src/socket/socket.gateway.ts
+- chatting-frontend/app/page.tsx
+
+---
+
+## 방 정보 저장 구조
+
+```typescript
+private clientRooms: Map<string, string> = new Map(); // clientId → roomId
+private rooms: Map<string, WaitingPlayer[]> = new Map(); // roomId → 참가자 목록
+```
+
+- `clientRooms`: 누가 어느 방에 있는지 (클라이언트 기준)
+- `rooms`: 방에 누가 있는지 (방 기준)
+
+---
+
+## 방 입장 시 저장 (handleJoinQueue)
+
+```typescript
+if (this.waitingQueue.length >= 2) {
+  const player1 = this.waitingQueue.shift()!;
+  const player2 = this.waitingQueue.shift()!;
+  const roomId = `room-${Date.now()}`;
+
+  // Socket.IO 방 입장
+  this.server.sockets.sockets.get(player1.id)?.join(roomId);
+  this.server.sockets.sockets.get(player2.id)?.join(roomId);
+
+  // 우리가 관리하는 Map에 저장
+  this.clientRooms.set(player1.id, roomId);
+  this.clientRooms.set(player2.id, roomId);
+  this.rooms.set(roomId, [player1, player2]);
+}
+```
+
+---
+
+## 연결 해제 시 정리 (handleDisconnect)
+
+```typescript
+handleDisconnect(client: Socket) {
+  // 1. 대기열에서 제거
+  this.waitingQueue = this.waitingQueue.filter((p) => p.id !== client.id);
+
+  // 2. 방 찾기
+  const roomId = this.clientRooms.get(client.id);
+
+  if (roomId) {
+    // 3. 방 참가자 목록에서 제거
+    const participants = this.rooms.get(roomId) || [];
+    const updated = participants.filter((p) => p.id !== client.id);
+
+    if (updated.length === 0) {
+      // 4. 방 비었으면 삭제
+      this.rooms.delete(roomId);
+    } else {
+      // 5. 남은 사람에게 알림
+      this.rooms.set(roomId, updated);
+      this.server.to(roomId).emit('participantLeft', {
+        participants: updated.map((p) => p.nickname),
+      });
+    }
+  }
+
+  // 6. clientRooms에서 제거
+  this.clientRooms.delete(client.id);
+
+  // 7. 전체 대기 인원 갱신
+  this.server.emit('waitingCount', { count: this.waitingQueue.length });
+}
+```
+
+---
+
+## 프론트 - participantLeft 수신
+
+```typescript
+socket.on("participantLeft", (data: { participants: string[] }) => {
+  setParticipants(data.participants);
+});
+```
+
+---
+
+## 핵심 포인트
+
+브라우저 종료 / 탭 닫기 / 새로고침 / 네트워크 끊김
+→ 전부 서버의 handleDisconnect 자동 호출
+→ 클라이언트가 "나 나갈게요" 안 보내도 됨
+→ 서버가 무조건 감지해서 정리

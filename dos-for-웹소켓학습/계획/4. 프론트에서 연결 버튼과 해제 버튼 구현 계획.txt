@@ -1,0 +1,63 @@
+# 프론트에서 연결/해제 버튼 구현
+
+## 목표
+- [연결] 버튼 클릭 시 백엔드 WebSocket 서버에 연결
+- [연결 해제] 버튼 클릭 시 연결 종료
+- 서버 콘솔에 connected/disconnected 로그 출력되면 성공
+
+---
+
+## 구현 순서
+
+### Step 1: socket.io-client 설치
+```bash
+cd /Users/terecal/websocket-prac/chatting-frontend
+npm install socket.io-client
+```
+
+### Step 2: page.tsx에 소켓 연결 코드 추가
+```typescript
+import { io, Socket } from 'socket.io-client';
+
+// 소켓 인스턴스 (컴포넌트 외부 또는 useRef)
+let socket: Socket | null = null;
+
+const handleConnect = () => {
+  socket = io('http://localhost:3010');
+  socket.on('connect', () => {
+    setStatus('CONNECTED');
+  });
+  socket.on('disconnect', () => {
+    setStatus('DISCONNECTED');
+  });
+};
+
+const handleDisconnect = () => {
+  socket?.disconnect();
+  socket = null;
+  setStatus('DISCONNECTED');
+};
+```
+
+### Step 3: 테스트
+1. 백엔드 실행 (`npm run start:dev` - 포트 3010)
+2. 프론트 실행 (`npm run dev` - 포트 3000)
+3. 닉네임 입력 후 [연결] 클릭
+4. 백엔드 콘솔에 `client connected: xxxx` 출력 확인
+5. [연결 해제] 클릭
+6. 백엔드 콘솔에 `client disconnected: xxxx` 출력 확인
+
+---
+
+## 성공 기준
+- 연결 버튼 → 백엔드 로그에 connected
+- 해제 버튼 → 백엔드 로그에 disconnected
+- 프론트 상태가 CONNECTED ↔ DISCONNECTED 전환
+
+---
+
+## 이 단계에서 하지 않는 것
+- joinQueue 이벤트 전송
+- 닉네임 서버 전송
+- 상태 동기화
+- 채팅 기능

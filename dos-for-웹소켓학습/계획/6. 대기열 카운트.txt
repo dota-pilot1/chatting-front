@@ -1,0 +1,82 @@
+# 대기열 카운트 구현 계획
+
+## 목표
+- 대기열에 참가한 인원 수를 실시간으로 표시
+- 여러 브라우저에서 테스트 → 대기 인원 동기화 확인
+
+---
+
+## 핵심 개념
+
+emit = 특정 클라이언트 1명에게 전송
+broadcast = 나 제외 전체에게 전송
+서버.emit = 전체에게 전송
+
+---
+
+## 구현 순서
+
+### Step 1: 백엔드 - 대기열 배열 관리
+
+```typescript
+// socket.gateway.ts
+private waitingQueue: string[] = []; // 대기열 (client.id 저장)
+
+@SubscribeMessage('joinQueue')
+handleJoinQueue(client: Socket, data: { nickname: string }) {
+  this.waitingQueue.push(client.id);
+
+  // 전체 클라이언트에게 대기 인원 broadcast
+  this.server.emit('waitingCount', { count: this.waitingQueue.length });
+
+  client.emit('statusChange', { status: 'WAITING' });
+}
+```
+
+### Step 2: 백엔드 - WebSocketServer 데코레이터 추가
+
+```typescript
+@WebSocketServer()
+server: Server;
+```
+
+### Step 3: 백엔드 - disconnect 시 대기열에서 제거
+
+```typescript
+handleDisconnect(client: Socket) {
+  // 대기열에서 제거
+  this.waitingQueue = this.waitingQueue.filter(id => id !== client.id);
+
+  // 전체에게 갱신된 인원 broadcast
+  this.server.emit('waitingCount', { count: this.waitingQueue.length });
+}
+```
+
+### Step 4: 프론트 - waitingCount 수신
+
+```typescript
+socket.on("waitingCount", (data: { count: number }) => {
+  setWaitingCount(data.count);
+});
+```
+
+---
+
+## 테스트 방법
+1. 브라우저 A: 닉네임 입력 → 연결 → 대기열 참가
+2. 브라우저 B: 다른 닉네임 → 연결 → 대기열 참가
+3. 확인: 두 브라우저 모두 "대기 인원: 2명" 표시
+4. 브라우저 B 연결 해제 → 대기 인원: 1명으로 변경
+
+---
+
+## 성공 기준
+- 대기열 참가 시 전체 클라이언트에 인원 수 동기화
+- 연결 해제 시 인원 수 감소
+
+---
+
+## 이 단계에서 하지 않는 것
+- 1:1 매칭
+- 채팅
+- Redis

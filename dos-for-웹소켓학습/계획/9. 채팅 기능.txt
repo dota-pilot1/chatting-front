@@ -1,0 +1,110 @@
+# 채팅 기능 구현 계획
+
+## 목표
+- 같은 방에 있는 사람끼리 메시지 주고받기
+- 메시지 입력 → 전송 → 같은 방에만 표시
+
+---
+
+## 핵심 개념
+
+동일한 패턴 반복:
+1. emit("sendMessage") → 서버로 전송
+2. 서버: to(roomId).emit("receiveMessage") → 같은 방에만
+3. 프론트: 메시지 목록에 추가
+
+---
+
+## 구현 순서
+
+### Step 1: 백엔드 - 클라이언트별 roomId 저장
+
+```typescript
+// socket.gateway.ts
+private clientRooms: Map<string, string> = new Map(); // clientId → roomId
+
+// 방 입장 시 저장
+this.clientRooms.set(player1.id, roomId);
+this.clientRooms.set(player2.id, roomId);
+```
+
+### Step 2: 백엔드 - sendMessage 이벤트 처리
+
+```typescript
+@SubscribeMessage('sendMessage')
+handleSendMessage(client: Socket, data: { message: string; nickname: string }) {
+  const roomId = this.clientRooms.get(client.id);
+  if (roomId) {
+    this.server.to(roomId).emit('receiveMessage', {
+      nickname: data.nickname,
+      message: data.message,
+    });
+  }
+}
+```
+
+### Step 3: 프론트 - 메시지 상태 추가
+
+```typescript
+const [messages, setMessages] = useState<{ nickname: string; message: string }[]>([]);
+```
+
+### Step 4: 프론트 - receiveMessage 수신
+
+```typescript
+socket.on("receiveMessage", (data) => {
+  setMessages((prev) => [...prev, data]);
+});
+```
+
+### Step 5: 프론트 - 메시지 입력 UI
+
+```typescript
+const [inputMessage, setInputMessage] = useState("");
+
+const handleSendMessage = () => {
+  if (inputMessage.trim()) {
+    socketRef.current?.emit("sendMessage", { message: inputMessage, nickname });
+    setInputMessage("");
+  }
+};
+```
+
+### Step 6: 프론트 - 채팅 UI 표시 (IN_ROOM 상태일 때)
+
+```typescript
+{status === "IN_ROOM" && (
+  <section>
+    <h2>채팅</h2>
+    <div>
+      {messages.map((msg, i) => (
+        <p key={i}><b>{msg.nickname}:</b> {msg.message}</p>
+      ))}
+    </div>
+    <input value={inputMessage} onChange={(e) => setInputMessage(e.target.value)} />
+    <button onClick={handleSendMessage}>전송</button>
+  </section>
+)}
+```
+
+---
+
+## 테스트 방법
+1. 브라우저 A: "철수" 연결 → 대기열 참가
+2. 브라우저 B: "영희" 연결 → 대기열 참가
+3. 방 입장 후 메시지 전송
+4. 확인: 두 브라우저 모두 같은 메시지 표시
+
+---
+
+## 성공 기준
+- 메시지 전송 → 같은 방 사람만 수신
+- 메시지 목록에 닉네임 + 내용 표시
+
+---
+
+## 이 단계에서 하지 않는 것
+- 메시지 저장 (DB)
+- 방 나가기
+- 이미지/파일 전송
+- Redis

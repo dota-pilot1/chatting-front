@@ -1,0 +1,107 @@
+# 웹소켓 연결/해제 개념 정리
+
+---
+
+## 1. useRef를 쓰는 이유
+
+useRef = "값은 바뀌지만, 화면 렌더링에는 관여하지 않는 저장소"
+
+```typescript
+const socketRef = useRef<Socket | null>(null);
+```
+
+- socket 객체는 연결 상태를 유지해야 함
+- 하지만 socket 객체 자체가 바뀐다고 화면을 다시 그릴 필요 없음
+- 그래서 useState가 아닌 useRef 사용
+
+---
+
+## 2. 웹소켓 연결 과정
+
+```typescript
+const handleConnect = () => {
+  if (!nickname.trim()) {
+    alert("닉네임을 입력해주세요");
+    return;
+  }
+
+  const socket = io("http://localhost:3010");
+  socketRef.current = socket;
+
+  socket.on("connect", () => {
+    setStatus("CONNECTED");
+  });
+
+  socket.on("disconnect", () => {
+    setStatus("DISCONNECTED");
+  });
+};
+```
+
+### 실행 흐름
+
+버튼 클릭
+  ↓
+handleConnect 실행
+  ↓
+const socket = io("http://localhost:3010");
+  ↓
+[1] socket 객체 생성
+[2] 즉시 서버로 연결 시도 시작
+  ↓
+서버가 연결을 허용하면
+  ↓
+connect 이벤트 발생
+  ↓
+등록한 콜백 실행: setStatus("CONNECTED")
+
+### 핵심 포인트
+
+- socket 객체 생성 = 연결 완료 ❌
+- socket 객체 생성 = 연결 시도 시작 ⭕
+- 연결 완료는 connect 이벤트 시점
+
+---
+
+## 3. 웹소켓 해제 과정
+
+```typescript
+const handleDisconnect = () => {
+  socketRef.current?.disconnect();
+  socketRef.current = null;
+  setStatus("DISCONNECTED");
+};
+```
+
+### 실행 흐름
+
+socket.disconnect() 호출
+  ↓
+[1] 연결 종료 요청
+  ↓
+[2] 실제 연결이 끊어지면
+  ↓
+[3] disconnect 이벤트 발생
+  ↓
+[4] 등록한 콜백 실행
+
+---
+
+## 4. 핵심 개념
+
+WebSocket은 요청/응답 모델이 아님
+"객체 생성 → 이벤트 기반 상태 변화" 모델
+
+HTTP:
+  요청 보냄 → 응답 받음 → 끝
+
+WebSocket:
+  연결 시도 → 연결 성공 이벤트 → 계속 열려있음 → 이벤트 주고받음 → 종료 이벤트
+
+---
+
+## 한 줄 결론
+
+socket 객체 생성 → 연결 시도 → 연결 성공 → connect 이벤트 → 콜백 실행
+
+이 흐름을 이해하면 이후 joinQueue / Redis / 채팅 전부 자연스럽게 이어짐.

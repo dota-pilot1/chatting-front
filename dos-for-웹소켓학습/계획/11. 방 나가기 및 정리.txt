@@ -1,0 +1,115 @@
+# 방 나가기 및 정리 구현 계획
+
+## 목표
+- disconnect 시 방에서 나가기 처리
+- 남은 참가자에게 목록 갱신 알림
+- 방 비면 방 삭제
+
+---
+
+## 핵심 개념
+
+브라우저 종료 / 탭 닫기 / 새로고침 / 네트워크 끊김
+→ 전부 서버의 handleDisconnect 자동 호출
+
+클라이언트가 "나 나갈게요" 안 보내도 됨
+서버가 무조건 감지함
+
+---
+
+## Socket.IO 라이프사이클
+
+```
+connect
+  ↓
+join(room)
+  ↓
+메시지 주고받음
+  ↓
+disconnect ← 여기서 정리
+```
+
+---
+
+## 구현 순서
+
+### Step 1: 백엔드 - rooms 정보 저장 구조 추가
+
+```typescript
+// roomId → 참가자 목록
+private rooms: Map<string, { id: string; nickname: string }[]> = new Map();
+```
+
+### Step 2: 백엔드 - 방 생성 시 rooms에 저장
+
+```typescript
+// 매칭 시
+this.rooms.set(roomId, [
+  { id: player1.id, nickname: player1.nickname },
+  { id: player2.id, nickname: player2.nickname },
+]);
+```
+
+### Step 3: 백엔드 - handleDisconnect 정리 로직
+
+```typescript
+handleDisconnect(client: Socket) {
+  // 1. 대기열에서 제거
+  this.waitingQueue = this.waitingQueue.filter((p) => p.id !== client.id);
+
+  // 2. 방 찾기
+  const roomId = this.clientRooms.get(client.id);
+
+  if (roomId) {
+    // 3. 방 참가자 목록에서 제거
+    const participants = this.rooms.get(roomId) || [];
+    const updated = participants.filter((p) => p.id !== client.id);
+
+    if (updated.length === 0) {
+      // 4. 방 비었으면 삭제
+      this.rooms.delete(roomId);
+    } else {
+      // 5. 남은 사람에게 알림
+      this.rooms.set(roomId, updated);
+      this.server.to(roomId).emit('participantLeft', {
+        participants: updated.map((p) => p.nickname),
+      });
+    }
+  }
+
+  // 6. clientRooms에서 제거
+  this.clientRooms.delete(client.id);
+
+  // 7. 전체 대기 인원 갱신
+  this.server.emit('waitingCount', { count: this.waitingQueue.length });
+}
+```
+
+### Step 4: 프론트 - participantLeft 이벤트 수신
+
+```typescript
+socket.on("participantLeft", (data: { participants: string[] }) => {
+  setParticipants(data.participants);
+});
+```
+
+---
+
+## 테스트 방법
+1. 브라우저 2개로 방 입장
+2. 한 브라우저 탭 닫기 (또는 연결 해제)
+3. 남은 브라우저에서 참가자 목록 1명으로 변경 확인
+
+---
+
+## 성공 기준
+- disconnect 시 방에서 자동 제거
+- 남은 참가자에게 목록 갱신
+- 방 비면 rooms에서 삭제
+
+---
+
+## 이 단계에서 하지 않는 것
+- 방 나가기 버튼 (disconnect로 충분)
+- 재접속 처리
+- Redis

@@ -1,0 +1,87 @@
+# 방 입장, 퇴장 이벤트 구현 계획
+
+## 목표
+- [대기열 참가] 버튼 클릭 시 joinQueue 이벤트 전송
+- 서버에서 이벤트 받아서 상태 변경 후 클라이언트에 push
+- 클라이언트는 서버가 보낸 상태만 표시
+
+---
+
+## 핵심 개념
+
+지금까지: connect / disconnect (소켓 연결 자체)
+이번 단계: joinQueue / leaveQueue (도메인 이벤트)
+
+connect = 서버에 연결됨
+joinQueue = 대기열에 들어감 (WAITING 상태)
+
+---
+
+## 구현 순서
+
+### Step 1: 프론트 - joinQueue 이벤트 전송
+
+```typescript
+// page.tsx
+const handleJoinQueue = () => {
+  socketRef.current?.emit("joinQueue", { nickname });
+};
+```
+
+버튼 클릭 → emit("joinQueue") → 서버로 이벤트 전송
+
+### Step 2: 백엔드 - joinQueue 이벤트 수신
+
+```typescript
+// socket.gateway.ts
+@SubscribeMessage('joinQueue')
+handleJoinQueue(client: Socket, data: { nickname: string }) {
+  console.log('joinQueue:', client.id, data.nickname);
+
+  // 클라이언트에게 상태 변경 push
+  client.emit('statusChange', { status: 'WAITING' });
+}
+```
+
+서버가 이벤트 받음 → 클라이언트에게 상태 push
+
+### Step 3: 프론트 - 서버 상태 수신
+
+```typescript
+// page.tsx (handleConnect 안에 추가)
+socket.on("statusChange", (data) => {
+  setStatus(data.status);
+});
+```
+
+서버가 보낸 상태 → 그대로 화면에 반영
+
+---
+
+## 이벤트 흐름 정리
+
+[대기열 참가] 클릭
+  ↓
+프론트: emit("joinQueue", { nickname })
+  ↓
+백엔드: @SubscribeMessage('joinQueue') 실행
+  ↓
+백엔드: client.emit("statusChange", { status: "WAITING" })
+  ↓
+프론트: socket.on("statusChange") 실행
+  ↓
+화면: 내 상태 → WAITING
+
+---
+
+## 성공 기준
+- 버튼 클릭 → 서버 로그에 joinQueue 출력
+- 화면 상태가 CONNECTED → WAITING 변경
+
+---
+
+## 이 단계에서 하지 않는 것
+- 대기 인원 카운트
+- 방 매칭 로직
+- 채팅 기능
+- Redis

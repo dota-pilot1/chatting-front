@@ -1,0 +1,133 @@
+# 방 입장 및 참가자 목록 구현 계획
+
+## 목표
+- 매칭된 2명을 실제 방에 입장시키기
+- IN_ROOM 상태로 업데이트
+- 해당 방의 참가자 목록 표시
+
+---
+
+## 핵심 개념
+
+matched = "매칭 됐다" 알림만
+이번 단계 = 실제로 방 생성 + 특정 2명만 입장 + 참가자 정보 공유
+
+socket.join(roomId) = 특정 방에 입장
+server.to(roomId).emit() = 해당 방에만 전송
+
+---
+
+## 구현 순서
+
+### Step 1: 백엔드 - 방 생성 및 입장
+
+```typescript
+// socket.gateway.ts
+@SubscribeMessage('joinQueue')
+handleJoinQueue(client: Socket, data: { nickname: string }) {
+  this.waitingQueue.push({ id: client.id, nickname: data.nickname });
+
+  // 2명 이상이면 매칭
+  if (this.waitingQueue.length >= 2) {
+    const player1 = this.waitingQueue.shift();
+    const player2 = this.waitingQueue.shift();
+
+    const roomId = `room-${Date.now()}`;
+
+    // 두 클라이언트를 방에 입장
+    this.server.sockets.sockets.get(player1.id)?.join(roomId);
+    this.server.sockets.sockets.get(player2.id)?.join(roomId);
+
+    // 방에 있는 사람들에게만 전송
+    this.server.to(roomId).emit('joinedRoom', {
+      roomId,
+      participants: [player1.nickname, player2.nickname]
+    });
+  }
+}
+```
+
+### Step 2: 프론트 - joinedRoom 이벤트 수신
+
+```typescript
+const [roomId, setRoomId] = useState<string | null>(null);
+const [participants, setParticipants] = useState<string[]>([]);
+
+socket.on("joinedRoom", (data) => {
+  setStatus("IN_ROOM");
+  setRoomId(data.roomId);
+  setParticipants(data.participants);
+});
+```
+
+### Step 3: 프론트 - 참가자 목록 UI 표시
+
+```typescript
+{status === "IN_ROOM" && (
+  <section>
+    <h2>방 정보</h2>
+    <p>방 ID: {roomId}</p>
+    <p>참가자: {participants.join(", ")}</p>
+  </section>
+)}
+```
+
+---
+
+## 변경 사항
+
+waitingQueue 구조 변경:
+- 기존: string[] (client.id만)
+- 변경: { id: string, nickname: string }[]
+
+---
+
+## 테스트 방법
+1. 브라우저 A: "철수" 연결 → 대기열 참가
+2. 브라우저 B: "영희" 연결 → 대기열 참가
+3. 확인:
+   - 두 브라우저 모두 IN_ROOM 상태
+   - 참가자: 철수, 영희 표시
+
+---
+
+## 성공 기준
+- 2명 매칭 시 방 생성
+- 두 클라이언트만 방에 입장
+- 참가자 목록 표시
+
+---
+
+## 이 단계에서 하지 않는 것
+- 채팅 기능
+- 방 나가기
+- Redis
+
+---
+
+## 보충 설명
+
+### join() - Socket.IO 내장 함수
+```typescript
+client.join("room-123");  // room-123 방에 입장
+```
+- Socket.IO 라이브러리가 제공하는 방(room) 입장 함수
+- 방 = 클라이언트들을 그룹화하는 개념
+- `join()` = 방에 들어가기
+- `leave()` = 방에서 나가기
+- 방에 입장하면 `server.to(roomId).emit()`으로 해당 방에만 메시지 전송 가능
+
+### shift() - JavaScript 배열 내장 함수
+```typescript
+const arr = ["a", "b", "c"];
+const first = arr.shift();  // "a" 반환
+console.log(arr);           // ["b", "c"] (첫 번째 요소 제거됨)
+```
+- 배열의 첫 번째 요소를 제거하고 반환
+- 대기열에서 순서대로 꺼낼 때 사용
+
+배열 메서드 비교:
+- `push()` = 맨 뒤에 추가
+- `pop()` = 맨 뒤에서 제거
+- `unshift()` = 맨 앞에 추가
+- `shift()` = 맨 앞에서 제거 + 반환
